@@ -52,9 +52,9 @@ gameDataSet <- read.csv(path)
 #Column Names
 colnames(gameDataSet)
 ```
-##Redefine Columns
+## Redefine Columns
 ```{r}
-#Remove GameID since it make no sense to inputs
+#Remove GameID since it makes no sense to inputs
 gameDataSet = gameDataSet[,!(names(gameDataSet) %in% c("GameID"))]
 ```
 
@@ -162,8 +162,11 @@ set.seed(26)
 clusterNo=NbClust(new_input_gameDf,distance="euclidean", min.nc=2,max.nc=10,method="kmeans",index="all")
 ```
 
-
-
+```{r}
+# Elbow method
+fviz_nbclust(new_input_gameDf, kmeans, method = "wss") + geom_vline(xintercept = 2, linetype = 2)+ 
+  labs(subtitle = "Elbow method")
+```
 
 
 
