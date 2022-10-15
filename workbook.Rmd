@@ -145,6 +145,26 @@ new_input_gameDf = nill_outliers_gameDf_scaled[,!(names(nill_outliers_gameDf_sca
 ```
 
 
+```{r}
+# Visualize indivizual classes
+oldpar1 = par(mfrow = c(2,6))
+for ( i in 1:11 ) {
+  boxplot(new_input_gameDf[[i]])
+  mtext(names(new_input_gameDf)[i], cex = 1, side = 1, line = 2)
+}
+par(oldpar1) 
+```
+## Deciding best number of Clusters
+
+```{r}
+# Best number of clusters using NbClust
+set.seed(26)
+clusterNo=NbClust(new_input_gameDf,distance="euclidean", min.nc=2,max.nc=10,method="kmeans",index="all")
+```
+
+
+
+
 
 
 
