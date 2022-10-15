@@ -1,0 +1,155 @@
+---
+title: "Workbook"
+output: html_notebook
+---
+### Section-01
+
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+# install initial required 
+install.packages("devtools")
+install.packages("tidyverse")
+install.packages("ggstatsplot")
+install.packages("readxl")
+install.packages("factoextra")
+install.packages("NbClust")
+install.packages("rlang")
+install.packages('swamp')
+install.packages("dplyr") 
+```
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("impute")
+```
+
+
+```{r}
+# Load the package
+library(ggstatsplot)
+library(readxl)
+library(factoextra)
+library(NbClust)
+library(tidyverse)
+library(swamp)
+library(data.table)
+library(dplyr)
+```
+
+
+```{r}
+# import csv file into R
+path <- "D:/Nav/my_projects/ML/SkillCraft_Dataset.csv"
+gameDataSet <- read.csv(path)
+```
+
+```{r}
+#Column Names
+colnames(gameDataSet)
+```
+##Redefine Columns
+```{r}
+#Remove GameID since it make no sense to inputs
+gameDataSet = gameDataSet[,!(names(gameDataSet) %in% c("GameID"))]
+```
+
+```{r}
+#demo dataset
+gameDataSet
+```
+```{r}
+#Findout the dataType or classes of df
+sapply(gameDataSet, class)
+```
+
+```{r}
+#Convert Non-Numeric columns to Numeric
+
+## Specifying columns want to change
+cf <- c(2, 3, 4)
+
+# Specifying own function within apply
+gameDataSet[ , cf] <- apply(gameDataSet[ , cf], 2,            
+                    function(x) as.numeric(as.character(x)))
+```
+
+```{r}
+#Findout the dataType or classes of df
+sapply(gameDataSet, class)
+```
+
+```{r}
+# Applying functions of dplyr
+gameDf_scaled <- gameDataSet %>%           
+  mutate_at(colnames(gameDataSet), ~(scale(.) %>% as.vector))
+
+head(gameDf_scaled)  
+```
+
+```{r}
+# Create a boxplot of the dataset, outliers are shown as two distinct points
+boxplot(gameDf_scaled)$out
+```
+
+```{r}
+# create detect outlier function
+find_outlierx <- function(x) { 
+  Quantilex1 <- quantile(x, probs=.25)
+  Quantilex3 <- quantile(x, probs=.75)
+  IQR = Quantilex3-Quantilex1
+  x > Quantilex3 + (IQR*1.5) | x < Quantilex1 - (IQR*1.5)
+}
+```
+
+```{r}
+# create remove outlier function
+remove_outliery <- function(dataframe,
+                            columns=names(dataframe)) { 
+  # for loop to traverse in columns vector
+  for (col in columns) {
+
+      # remove observation if it satisfies outlier function
+      dataframe <- dataframe[!find_outlierx(dataframe[[col]]), ]
+  }
+
+  # return dataframe
+  print("Remove outliers")
+  print(dataframe)
+}
+```
+
+
+```{r}
+#Set NaN to 0.
+gameDf_scaled[is.na(gameDf_scaled)] = 0
+
+#Remove Outliers
+nill_outliers_gameDf_scaled <- remove_outliery(gameDf_scaled, colnames(gameDf_scaled))
+```
+
+```{r}
+# Create a boxplot of the dataset, after removing outliers
+boxplot(nill_outliers_gameDf_scaled)$out
+```
+
+```{r}
+#seperate Input variables and Output variable
+output_column = nill_outliers_gameDf_scaled$LeagueIndex  
+
+new_input_gameDf = nill_outliers_gameDf_scaled[,!(names(nill_outliers_gameDf_scaled) %in% c("LeagueIndex"))]
+```
+
+
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
