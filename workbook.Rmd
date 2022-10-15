@@ -163,10 +163,17 @@ clusterNo=NbClust(new_input_gameDf,distance="euclidean", min.nc=2,max.nc=10,meth
 ```
 
 ```{r}
-# Elbow method
+# Best number of clusters using Elbow method
 fviz_nbclust(new_input_gameDf, kmeans, method = "wss") + geom_vline(xintercept = 2, linetype = 2)+ 
   labs(subtitle = "Elbow method")
 ```
+
+```{r}
+# Best number of clusters using Silhouette method
+fviz_nbclust(new_input_gameDf, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+```
+
 
 
 
