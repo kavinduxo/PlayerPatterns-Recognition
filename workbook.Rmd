@@ -60,7 +60,7 @@ gameDataSet = gameDataSet[,!(names(gameDataSet) %in% c("GameID"))]
 
 ```{r}
 #demo dataset
-gameDataSet
+head(gameDataSet)
 ```
 ```{r}
 #Findout the dataType or classes of df
@@ -154,6 +154,78 @@ for ( i in 1:11 ) {
 }
 par(oldpar1) 
 ```
+## Implementing Random Forest
+
+```{r}
+install.packages("randomForest")
+install.packages("party")
+```
+
+```{r}
+library(randomForest)
+require(caTools)
+library("party")
+```
+
+
+```{r}
+head(nill_outliers_gameDf_scaled)
+```
+
+```{r}
+summary(nill_outliers_gameDf_scaled)
+```
+
+```{r}
+sapply(nill_outliers_gameDf_scaled, class)
+```
+
+```{r}
+set.seed(1)
+```
+
+
+```{r}
+sample <- sample.split(nill_outliers_gameDf_scaled$LeagueIndex, SplitRatio = .7)
+train  <- subset(nill_outliers_gameDf_scaled, sample == TRUE)
+test   <- subset(nill_outliers_gameDf_scaled, sample == FALSE)
+```
+
+
+```{r}
+dim(train)
+dim(test)
+```
+
+```{r}
+rf <- randomForest(
+  LeagueIndex ~ .,
+  data=train
+)
+```
+
+```{r}
+pred = predict(rf, newdata=test[-1])
+```
+
+```{r}
+cm = table(test[,1], pred)
+```
+
+```{r}
+x <- ctree (LeagueIndex ~ ., data=test)
+plot(x, type="simple")
+```
+
+
+
+
+
+
+
+
+
+
 ## Deciding best number of Clusters
 
 ```{r}
