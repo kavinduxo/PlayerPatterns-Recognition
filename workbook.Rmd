@@ -159,12 +159,19 @@ par(oldpar1)
 ```{r}
 install.packages("randomForest")
 install.packages("party")
+install.packages("Amelia")
+install.packages("yardstick")
 ```
 
 ```{r}
 library(randomForest)
 require(caTools)
 library("party")
+library('tidyverse')
+library("Amelia")
+library('randomForest')
+library(caret) # for applying classification and getting confusion matrix
+library('yardstick')
 ```
 
 
@@ -173,12 +180,173 @@ head(nill_outliers_gameDf_scaled)
 ```
 
 ```{r}
+#QUick summary for the dataset
 summary(nill_outliers_gameDf_scaled)
 ```
 
 ```{r}
+#Data types of each df.column
 sapply(nill_outliers_gameDf_scaled, class)
 ```
+```{r}
+#Converting Ranking column to charater 
+nill_outliers_gameDf_scaled$LeagueIndex = as.character(as.numeric(nill_outliers_gameDf_scaled$LeagueIndex))
+```
+
+```{r}
+#Replacing with reasonable Charater (ASC ORD)
+nill_outliers_gameDf_scaled$LeagueIndex <- str_replace(nill_outliers_gameDf_scaled$LeagueIndex, "-2.09848934275149", "A")
+nill_outliers_gameDf_scaled$LeagueIndex <- str_replace(nill_outliers_gameDf_scaled$LeagueIndex, "-1.43943556674397", "B")
+nill_outliers_gameDf_scaled$LeagueIndex <- str_replace(nill_outliers_gameDf_scaled$LeagueIndex, "-0.780381790736446", "C")
+nill_outliers_gameDf_scaled$LeagueIndex <- str_replace(nill_outliers_gameDf_scaled$LeagueIndex, "-0.121328014728925", "D")
+nill_outliers_gameDf_scaled$LeagueIndex <- str_replace(nill_outliers_gameDf_scaled$LeagueIndex, "0.537725761278596", "E")
+nill_outliers_gameDf_scaled$LeagueIndex <- str_replace(nill_outliers_gameDf_scaled$LeagueIndex, "1.19677953728612", "F")
+nill_outliers_gameDf_scaled$LeagueIndex <- str_replace(nill_outliers_gameDf_scaled$LeagueIndex, "1.85583331329364", "G")
+```
+
+```{r}
+#Converting character to factor for furtur processings
+nill_outliers_gameDf_scaled$LeagueIndex = as.factor(as.character(nill_outliers_gameDf_scaled$LeagueIndex)) 
+```
+
+
+```{r}
+# Getting distinct value of rank column with new values
+distinct(nill_outliers_gameDf_scaled, LeagueIndex)
+```
+```{r}
+#Finding Null values for columns
+SumNa <- function(col){sum(is.na(col))}
+```
+
+```{r}
+#Filtering for all the feature columns
+data.sum <- nill_outliers_gameDf_scaled %>% 
+  summarise_all(SumNa) %>%
+  tidyr::gather(key='feature', value='SumNa') %>%
+  arrange(-SumNa) %>%
+  mutate(PctNa = SumNa/nrow(nill_outliers_gameDf_scaled))
+```
+
+```{r}
+#Filetering for Index Column ..consider the PCA
+data.sum2 <- data.sum %>% 
+  filter(! (feature %in% c('LeagueIndex'))) %>%
+  filter(PctNa < .85)
+```
+
+```{r}
+data.sum2$feature
+```
+
+```{r}
+#Finalize the dataframe to train
+data_F <- nill_outliers_gameDf_scaled %>% 
+  dplyr::select(LeagueIndex, data.sum2$feature) %>%
+  filter(!is.na(LeagueIndex))
+```
+
+```{r}
+#Gap visualizing
+Amelia::missmap(as.data.frame(data_F))
+```
+
+
+```{r}
+set.seed(8576309)
+
+#Partition data set for Train and Test with 70% and 30% Accordingly
+trainIndex <- createDataPartition(data_F$LeagueIndex, 
+                                  p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+```
+
+```{r}
+train_df <- data_F[trainIndex, ]
+test_df <- data_F[-trainIndex, ]
+```
+
+```{r}
+# Defining controller for train
+train_ctrl <- trainControl(method="cv", # type of resampling in this case Cross-Validated
+                           number=3, # number of folds
+                           search = "random", # we are performing a "random
+                           )
+```
+
+```{r}
+# Index demo
+class(train_df[,1])
+```
+
+
+```{r}
+toc <- Sys.time()
+
+#Training the model...
+model_rf <- train(LeagueIndex ~ .,
+                       data = train_df,
+                       method = "rf", # this will use the randomForest::randomForest function
+                       metric =  "Accuracy", # which metric should be optimized for 
+                       trControl = train_ctrl,
+                       # options to be passed to randomForest
+                       ntree = 741,
+                       keep.forest=TRUE,
+                       importance=TRUE) 
+tic <- Sys.time()
+
+# Execution time
+tic - toc
+```
+
+
+```{r}
+#Model Summary
+model_rf
+```
+
+```{r}
+#Plotting the Features
+randomForest::varImpPlot(model_rf$finalModel)
+```
+
+```{r}
+# Getting test dataframe performed
+probs <- predict(model_rf, test_df, 'prob')
+class <- predict(model_rf, test_df, 'raw')
+
+
+test_df.scored <- cbind(test_df, probs, class)
+
+test_df.scored
+```
+
+```{r}
+# Creating the Confusion matrix 
+cm <- conf_mat(test_df.scored, truth = LeagueIndex, class)
+```
+
+```{r}
+#TP TN FP FN
+cm
+```
+
+
+```{r}
+#Summary of the matrix
+summary(cm)
+```
+
+```{r}
+# Performace plot
+ggplot(summary(cm), aes(x=.metric, y=.estimate)) + 
+  geom_bar(stat="identity") + 
+  coord_flip()
+```
+
+
+## ----------------------- pause
 
 ```{r}
 set.seed(1)
@@ -205,6 +373,10 @@ rf <- randomForest(
 ```
 
 ```{r}
+rf
+```
+
+```{r}
 pred = predict(rf, newdata=test[-1])
 ```
 
@@ -218,10 +390,194 @@ plot(x, type="simple")
 ```
 
 
+```{r}
+install.packages("caret")
+install.packages("imbalance")
+
+```
+
+```{r}
+library(caret) # for applying classification and getting confusion matrix
+library(imbalance) # for haberman data set
+library(dplyr) # for transforming to tibble object
+library(cvms) # for plot a confusion matrix in R
+```
+
+```{r}
+train_pred = predict(rf, newdata=train[-1])
+```
 
 
+```{r}
+cm_table_train = cm_train = table(train[,1], train_pred)
+```
+
+```{r}
+test_pred = predict(rf, newdata=test[-1])
+```
 
 
+```{r}
+cm_test = table(test[,1], test_pred)
+```
+
+
+```{r}
+cm_train_ef = enframe(cm_train, name = "table", value = "value")
+```
+
+```{r}
+cm_test_ef = enframe(cm_test, name = "table", value = "value")
+```
+
+```{r}
+# Tibble for train data
+tab_fin_train=as_tibble(cm_train_ef$table)
+
+colnames(tab_fin_train)=c("Target", "Prediction", "N")
+```
+
+```{r}
+# Tibble for test data
+tab_fin_test=as_tibble(cm_test_ef$table)
+
+colnames(tab_fin_test)=c("Target", "Prediction", "N")
+```
+
+
+```{r}
+# Confusion matrix for train data
+plot_confusion_matrix(tab_fin_train)
+```
+
+
+```{r}
+# Confusion matrix for test data
+plot_confusion_matrix(tab_fin_test)
+```
+
+
+### without Scalling
+
+```{r}
+set.seed(1)
+```
+
+
+```{r}
+gameDataSet[ gameDataSet == "?"] <- NA
+colSums(is.na(gameDataSet))
+```
+```{r}
+summary(gameDataSet)
+```
+```{r}
+gameDataSet <- gameDataSet[!(gameDataSet$Age %in% c(NA)),]
+gameDataSet <- gameDataSet[!(gameDataSet$HoursPerWeek %in% c(NA)),]
+gameDataSet <- gameDataSet[!(gameDataSet$TotalHours %in% c(NA)),]
+
+colSums(is.na(gameDataSet))
+```
+
+```{r}
+sample1 <- sample.split(gameDataSet$LeagueIndex, SplitRatio = .7)
+train1  <- subset(gameDataSet, sample == TRUE)
+test1   <- subset(gameDataSet, sample == FALSE)
+```
+
+
+```{r}
+dim(train1)
+dim(test1)
+```
+
+```{r}
+rf1 <- randomForest(
+  LeagueIndex ~ .,
+  data=train1
+)
+```
+
+```{r}
+rf1
+```
+
+
+## Randomforest Regression 
+
+```{r}
+install.packages("OneR")
+install.packages("rfviz")
+```
+
+
+```{r}
+library(ggplot2)
+library(OneR)
+library(rfviz)
+library(tidyverse)
+```
+
+```{r}
+sample_rg <- sample.split(nill_outliers_gameDf_scaled$LeagueIndex, SplitRatio = .7)
+train_rg  <- subset(nill_outliers_gameDf_scaled, sample_rg == TRUE)
+test_rg   <- subset(nill_outliers_gameDf_scaled, sample_rg == FALSE)
+```
+
+```{r}
+train_rg_x = train_rg[-1]
+train_rg_y = train_rg[1]
+```
+
+```{r}
+head(nill_outliers_gameDf_scaled)
+```
+
+```{r}
+colSums(is.na(nill_outliers_gameDf_scaled))
+```
+
+```{r}
+class(train_rg_y[,1])
+```
+
+```{r}
+rfprep <- rf_prep(train_rg_x, train_rg_y[,1])
+```
+
+
+```{r}
+varImpPlot(rfprep$rf)
+```
+```{r}
+#Pull up the visualization tool
+bcrf <- rf_viz(rfprep, input=TRUE, imp=TRUE, cmd=TRUE)
+```
+
+ 
+```{r}
+set.seed(4543)
+```
+ 
+```{r}
+rfrg.fit <- randomForest(LeagueIndex ~ ., data=nill_outliers_gameDf_scaled, ntree=1000,
+                       keep.forest=FALSE, importance=TRUE)
+```
+
+```{r}
+rfrg.fit
+```
+```{r}
+
+# Output to be present as PNG file 
+png(file = "D:/Nav/my_projects/ML/PlayerPatterns_Recognition/randomForestRegression.png")
+  
+# Plot the error vs the number of trees graph
+plot(rfrg.fit)
+  
+# Saving the file
+dev.off()
+```
 
 
 
